@@ -54,11 +54,19 @@ class vtkTimerCallback2 : public vtkCommand
 			this->TimerCount = 0;
 		}
       }
-	  int offset = TimerCount * objects * 3;
-	  double x = trajectories[offset];
-	  double y = trajectories[offset + 1];
-	  double z = TimerCount;
-      actor->SetPosition(x, y, z);
+		for(int i=0; i<objects; i++){
+		  int tOffset = TimerCount * objects * 3;
+		  int oOffset = tOffset + i * 3;
+		  double x = trajectories[oOffset];
+		  double y = trajectories[oOffset + 1];
+		  double z = TimerCount;
+		  if(x > 0.0 && y > 0.0){
+			  actor[i]->VisibilityOn();
+			actor[i]->SetPosition(x, y, z);
+		  } else {
+			  actor[i]->VisibilityOff();
+		  }
+		}
       vtkRenderWindowInteractor *iren = vtkRenderWindowInteractor::SafeDownCast(caller);
       iren->GetRenderWindow()->Render();
     }
@@ -69,7 +77,7 @@ class vtkTimerCallback2 : public vtkCommand
 	int frames;
 	int objects;
   public:
-    vtkActor* actor;
+    vtkActor** actor;
 };
 
 int main(int, char* [])
@@ -93,7 +101,7 @@ int main(int, char* [])
 
   // Create a sphere
   vtkSmartPointer<vtkSphereSource> sphereSource = vtkSmartPointer<vtkSphereSource>::New();
-  sphereSource->SetCenter(0.0, 0.0, 0.0);
+  //sphereSource->SetCenter(0.0, 0.0, 0.0);
   sphereSource->SetRadius(2.0);
   sphereSource->SetPhiResolution(20.0);
   sphereSource->SetThetaResolution(20.0);
@@ -102,29 +110,33 @@ int main(int, char* [])
   //Create trajectory line
   vtkSmartPointer<vtkPoints> trajPoints = vtkSmartPointer<vtkPoints>::New();
   vtkSmartPointer<vtkPolyLine> trajLine = vtkSmartPointer<vtkPolyLine>::New();
-  trajLine->GetPointIds()->SetNumberOfIds(params[0]);
+  vtkSmartPointer<vtkPolyData> trajData = vtkSmartPointer<vtkPolyData>::New();
+  int* trajCounts = (int*) malloc(sizeof(int) * params[1]);
 
-  for(int i=0; i<params[0]; i++){
-	  int offset = i * params[1] * 3;
-	  double x = trajectories[offset];
-	  double y = trajectories[offset + 1];
-	  double z = i;
-	  trajPoints->InsertNextPoint(x, y, z);
-	  trajLine->GetPointIds()->SetId(i, i);
+  for(int o=0; o<params[1]; o++){//Loop over objects
+	  for(int i=0, count=0; i<params[0]; i++){//Loop over frames
+		  int tOffset = i * params[1] * 3;
+		  int oOffset = tOffset + o * 3;
+		  double x = trajectories[oOffset];
+		  double y = trajectories[oOffset + 1];
+		  double z = i;
+		  if(x>0.0 && y>0.0){
+			trajPoints->InsertNextPoint(x, y, z);
+			count++;
+		  }
+		  trajCounts[o] = count;
+	  }
   }
 
-    // Create a cell array to store the lines in and add the lines to it
-  vtkSmartPointer<vtkCellArray> trajCells = vtkSmartPointer<vtkCellArray>::New();
-  trajCells->InsertNextCell(trajLine);
- 
-  // Create a polydata to store everything in
-  vtkSmartPointer<vtkPolyData> trajData = vtkSmartPointer<vtkPolyData>::New();
- 
-  // Add the points to the dataset
   trajData->SetPoints(trajPoints);
- 
-  // Add the lines to the dataset
-  trajData->SetLines(trajCells);
+	trajData->Allocate();
+	for(int o=0, index=0; o<params[1]; o++){//Loop over objects
+		for(int j=index; j<index+trajCounts[o]-1; j++){
+			int connectivity[] = {j, j+1};
+			trajData->InsertNextCell(VTK_LINE, 2, connectivity);
+		}
+		index += trajCounts[o];
+	}
  
   // Setup actor and mapper
   vtkSmartPointer<vtkPolyDataMapper> trajMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
@@ -145,9 +157,13 @@ int main(int, char* [])
   // Create a mapper and actor
   vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
   mapper->SetInputConnection(sphereSource->GetOutputPort());
-  vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::New();
-  actor->GetProperty()->SetColor(1.0, 0.0, 0.0);
-  actor->SetMapper(mapper);
+  vtkActor** actor = (vtkActor**) malloc(sizeof(vtkActor) * params[1]);
+  
+  for(int i=0; i<params[1]; i++){
+	  actor[i] = vtkActor::New();
+	  actor[i]->GetProperty()->SetColor(1.0, 0.0, 0.0);
+	  actor[i]->SetMapper(mapper);
+  }
 
   // Create a renderer, render window, and interactor
   vtkSmartPointer<vtkRenderer> renderer = vtkSmartPointer<vtkRenderer>::New();
@@ -158,7 +174,9 @@ int main(int, char* [])
   renderWindowInteractor->SetRenderWindow(renderWindow);
  
   // Add the actor to the scene
-  renderer->AddActor(actor);
+  for(int i=0; i<params[1]; i++){
+	renderer->AddActor(actor[i]);
+  }
   renderer->AddActor(boxActor);
   renderer->AddActor(trajActor);
   renderer->SetBackground(0.0 ,0.0, 0.0); // Background color white
