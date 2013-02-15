@@ -10,19 +10,12 @@
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
 #include <vtkProperty.h>
-#include <vtkPolyLine.h>
 #include <vtkLine.h>
 #include <vtkCellArray.h>
 #include "read_trajs.h"
-#include <boost/random.hpp>
-#include <boost/random/normal_distribution.hpp>
 #include <boost/math/special_functions/round.hpp>
 
 using namespace boost;
-
-normal_distribution<float> _dist(0.0f, 0.1f);
-mt19937 rng;
-variate_generator<mt19937, normal_distribution<float> > var_nor(rng, _dist);
 
 void buildBoxPolyData(vtkSmartPointer<vtkPoints> boxPoints, vtkSmartPointer<vtkPolyData> boxData, int* params);
  
@@ -36,11 +29,12 @@ class vtkTimerCallback2 : public vtkCommand
       return cb;
     }
 
-	void Initialise(double* trajectories, int frames, int objects)
+	void Initialise(double* trajectories, int frames, int objects, int dim)
     {
 	  this->trajectories = trajectories;
 	  this->frames = frames;
 	  this->objects=objects;
+	  this->dim=dim;
       return;
     }
  
@@ -50,19 +44,25 @@ class vtkTimerCallback2 : public vtkCommand
 		if (vtkCommand::TimerEvent == eventId)
       {
         ++this->TimerCount;
-		if(this->TimerCount > 49){
-			this->TimerCount = 0;
+		if(this->TimerCount > this->frames-1){
+			this->TimerCount = 1;
 		}
       }
 		for(int i=0; i<objects; i++){
-		  int tOffset = TimerCount * objects * 3;
-		  int oOffset = tOffset + i * 3;
+		  int tOffset = (TimerCount-1) * objects * dim;
+		  int oOffset = tOffset + i * dim;
 		  double x = trajectories[oOffset];
 		  double y = trajectories[oOffset + 1];
-		  double z = TimerCount;
+		  double multi = trajectories[oOffset + 3];
+		  double z = (TimerCount-1);
 		  if(x > 0.0 && y > 0.0){
 			  actor[i]->VisibilityOn();
 			actor[i]->SetPosition(x, y, z);
+			if(multi > 0.0){
+				actor[i]->GetProperty()->SetColor(0.0, 1.0, 0.0);
+			} else {
+				actor[i]->GetProperty()->SetColor(1.0, 0.0, 0.0);
+			}
 		  } else {
 			  actor[i]->VisibilityOff();
 		  }
@@ -76,27 +76,29 @@ class vtkTimerCallback2 : public vtkCommand
 	double* trajectories;
 	int frames;
 	int objects;
+	int dim;
   public:
     vtkActor** actor;
 };
 
 int main(int, char* [])
 {
-	int numParams = 4;
+	int numParams = 5;
 	int* params = (int*) malloc(sizeof(int) * numParams);
 	char* paramNames = (char*) malloc(numParams * MAX_LINE * sizeof(char));
 	memcpy(&paramNames[0], FRAMES, MAX_LINE);
 	memcpy(&paramNames[MAX_LINE], TRAJS, MAX_LINE);
 	memcpy(&paramNames[2 * MAX_LINE], WIDTH, MAX_LINE);
 	memcpy(&paramNames[3 * MAX_LINE], HEIGHT, MAX_LINE);
+	memcpy(&paramNames[4 * MAX_LINE], DIM, MAX_LINE);
 	FILE *file;
 	FILE **filePointer = &file;
 	fopen_s(filePointer, _trajfilename_, "r");
 	for(int i=0; i<numParams; i++){
 		loadFloatParam(paramNames, numParams, params, "%s %f", MAX_LINE, 'i', file);
 	}
-	double* trajectories = (double*) malloc(sizeof(double) * params[0] * params[1] * 3);
-	loadTrajectories(file, trajectories, params[0], params[1], MAX_LINE, 3);
+	double* trajectories = (double*) malloc(sizeof(double) * params[0] * params[1] * params[4]);
+	loadTrajectories(file, trajectories, params[0], params[1], MAX_LINE, params[4]);
 	fclose(file);
 
   // Create a sphere
@@ -109,18 +111,17 @@ int main(int, char* [])
 
   //Create trajectory line
   vtkSmartPointer<vtkPoints> trajPoints = vtkSmartPointer<vtkPoints>::New();
-  vtkSmartPointer<vtkPolyLine> trajLine = vtkSmartPointer<vtkPolyLine>::New();
   vtkSmartPointer<vtkPolyData> trajData = vtkSmartPointer<vtkPolyData>::New();
   int* trajCounts = (int*) malloc(sizeof(int) * params[1]);
 
   for(int o=0; o<params[1]; o++){//Loop over objects
 	  for(int i=0, count=0; i<params[0]; i++){//Loop over frames
-		  int tOffset = i * params[1] * 3;
-		  int oOffset = tOffset + o * 3;
+		  int tOffset = i * params[1] * params[4];
+		  int oOffset = tOffset + o * params[4];
 		  double x = trajectories[oOffset];
 		  double y = trajectories[oOffset + 1];
 		  double z = i;
-		  if(x>0.0 && y>0.0){
+		  if(x>=0.0 && y>=0.0){
 			trajPoints->InsertNextPoint(x, y, z);
 			count++;
 		  }
@@ -189,7 +190,7 @@ int main(int, char* [])
  
   // Sign up to receive TimerEvent
   vtkSmartPointer<vtkTimerCallback2> cb = vtkSmartPointer<vtkTimerCallback2>::New();
-  cb->Initialise(trajectories, params[0], params[1]);
+  cb->Initialise(trajectories, params[0], params[1], params[4]);
   cb->actor = actor;
   renderWindowInteractor->AddObserver(vtkCommand::TimerEvent, cb);
  

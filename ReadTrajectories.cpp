@@ -56,7 +56,7 @@ extern bool loadTrajectories(FILE* file, double* trajectories, int rows, int col
 			}
 		}
 	}
-	if(rowcheck != rows || (colcheck / (rowcheck * 3)) != cols){
+	if(rowcheck != rows || (colcheck / (rowcheck * N)) != cols){
 		return false;
 	} else {
 		return true;
