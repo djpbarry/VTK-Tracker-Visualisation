@@ -39,14 +39,14 @@ extern bool loadTrajectories(FILE* file, double* trajectories, int rows, int col
 	char* line = (char*)malloc(sizeof(char) * maxline);
 	char* temp = (char*)malloc(sizeof(char) * maxline);
 	temp = "This is unlikely to be the same as what's stored in 'line'.";
-	char** ptemp = &temp;
 	int colcheck = 0, rowcheck = 0;
-	int collimit = N * cols;
+	//int collimit = N * cols;
 	for(int j=0; j<rows; j++){
 		if((fgets(line, maxline, file) != NULL)){
 			rowcheck++;
-			for(int i=0; i<collimit; i++){
-				trajectories[colcheck] = strtod(line, ptemp);
+			//for(int i=0; i<collimit; i++){
+			while(!(line[0]==32 && line[1]==10)){
+				trajectories[colcheck] = strtod(line, &temp);
 				_ASSERTE( _CrtCheckMemory( ) );
 				//[DEBUG]
 				//printf("%d, %d\n", rowcheck, colcheck);

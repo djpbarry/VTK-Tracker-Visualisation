@@ -12,11 +12,15 @@
 #include <vtkProperty.h>
 #include <vtkLine.h>
 #include <vtkCellArray.h>
+#include <vtkWindowToImageFilter.h>
+#include <vtkPNGWriter.h>
+#include <vtkCamera.h>
 #include "read_trajs.h"
 #include <boost/math/special_functions/round.hpp>
+#include <boost/random.hpp>
 
 using namespace boost;
-
+int dim=3;
 void buildBoxPolyData(vtkSmartPointer<vtkPoints> boxPoints, vtkSmartPointer<vtkPolyData> boxData, int* params);
  
 class vtkTimerCallback2 : public vtkCommand
@@ -29,12 +33,14 @@ class vtkTimerCallback2 : public vtkCommand
       return cb;
     }
 
-	void Initialise(double* trajectories, int frames, int objects, int dim)
+	void Initialise(double* trajectories, int frames, int objects, int dim, vtkRenderer* renderer, vtkCamera* camera)
     {
 	  this->trajectories = trajectories;
 	  this->frames = frames;
 	  this->objects=objects;
-	  this->dim=dim;
+	  //this->dim=dim;
+	  this->renderer=renderer;
+	  this->camera=camera;
       return;
     }
  
@@ -51,6 +57,8 @@ class vtkTimerCallback2 : public vtkCommand
 		for(int i=0; i<objects; i++){
 		  int tOffset = (TimerCount-1) * objects * dim;
 		  int oOffset = tOffset + i * dim;
+			//int tOffset = (TimerCount-1) * objects;
+		 // int oOffset = tOffset + i;
 		  double x = trajectories[oOffset];
 		  double y = trajectories[oOffset + 1];
 		  double multi = trajectories[oOffset + 3];
@@ -67,8 +75,29 @@ class vtkTimerCallback2 : public vtkCommand
 			  actor[i]->VisibilityOff();
 		  }
 		}
+		//float scale = 800.0f;
+		//float cameraX = scale * sin((float)TimerCount/frames);
+		//float cameraY = scale * cos((float)TimerCount/frames);
+		//float cameraZ = scale * sin((float)TimerCount/frames);
+		//camera->SetPosition(cameraX, cameraY, cameraZ);
+
       vtkRenderWindowInteractor *iren = vtkRenderWindowInteractor::SafeDownCast(caller);
       iren->GetRenderWindow()->Render();
+
+	 // vtkSmartPointer<vtkWindowToImageFilter> windowToImageFilter = vtkSmartPointer<vtkWindowToImageFilter>::New();
+	 // windowToImageFilter->SetInput(iren->GetRenderWindow());
+		//windowToImageFilter->SetMagnification(3); //set the resolution of the output image (3 times the current resolution of vtk render window)
+		//windowToImageFilter->SetInputBufferTypeToRGBA(); //also record the alpha (transparency) channel
+		//windowToImageFilter->Update();
+ 
+		//std::string savefilename("C:/users/barry05/Desktop/VTKTrackerVis/");
+  //      savefilename.append(boost::lexical_cast<std::string > (TimerCount));
+  //      savefilename.append(".png");
+
+	 // vtkSmartPointer<vtkPNGWriter> writer = vtkSmartPointer<vtkPNGWriter>::New();
+	 // writer->SetFileName(savefilename.data());
+	 // writer->SetInputConnection(windowToImageFilter->GetOutputPort());
+	 // writer->Write();
     }
  
   private:
@@ -76,29 +105,32 @@ class vtkTimerCallback2 : public vtkCommand
 	double* trajectories;
 	int frames;
 	int objects;
-	int dim;
+	vtkRenderer* renderer;
+	vtkCamera* camera;
   public:
     vtkActor** actor;
 };
 
 int main(int, char* [])
 {
-	int numParams = 5;
+	int numParams = 4;
 	int* params = (int*) malloc(sizeof(int) * numParams);
 	char* paramNames = (char*) malloc(numParams * MAX_LINE * sizeof(char));
 	memcpy(&paramNames[0], FRAMES, MAX_LINE);
 	memcpy(&paramNames[MAX_LINE], TRAJS, MAX_LINE);
 	memcpy(&paramNames[2 * MAX_LINE], WIDTH, MAX_LINE);
 	memcpy(&paramNames[3 * MAX_LINE], HEIGHT, MAX_LINE);
-	memcpy(&paramNames[4 * MAX_LINE], DIM, MAX_LINE);
+	//memcpy(&paramNames[4 * MAX_LINE], DIM, MAX_LINE);
 	FILE *file;
 	FILE **filePointer = &file;
 	fopen_s(filePointer, _trajfilename_, "r");
 	for(int i=0; i<numParams; i++){
 		loadFloatParam(paramNames, numParams, params, "%s %f", MAX_LINE, 'i', file);
 	}
-	double* trajectories = (double*) malloc(sizeof(double) * params[0] * params[1] * params[4]);
-	loadTrajectories(file, trajectories, params[0], params[1], MAX_LINE, params[4]);
+	/*double* trajectories = (double*) malloc(sizeof(double) * params[0] * params[1] * params[4]);*/
+	double* trajectories = (double*) malloc(sizeof(double) * params[0] * params[1]*dim);
+	//loadTrajectories(file, trajectories, params[0], params[1], MAX_LINE, params[4]);
+	loadTrajectories(file, trajectories, params[0], params[1], MAX_LINE, dim);
 	fclose(file);
 
   // Create a sphere
@@ -116,8 +148,10 @@ int main(int, char* [])
 
   for(int o=0; o<params[1]; o++){//Loop over objects
 	  for(int i=0, count=0; i<params[0]; i++){//Loop over frames
-		  int tOffset = i * params[1] * params[4];
-		  int oOffset = tOffset + o * params[4];
+		  int tOffset = i * params[1] * dim;
+		  int oOffset = tOffset + o * dim;
+		  //int tOffset = i * params[1];
+		  //int oOffset = tOffset + o;
 		  double x = trajectories[oOffset];
 		  double y = trajectories[oOffset + 1];
 		  double z = i;
@@ -169,7 +203,7 @@ int main(int, char* [])
   // Create a renderer, render window, and interactor
   vtkSmartPointer<vtkRenderer> renderer = vtkSmartPointer<vtkRenderer>::New();
   vtkSmartPointer<vtkRenderWindow> renderWindow = vtkSmartPointer<vtkRenderWindow>::New();
-  renderWindow->SetSize(640, 480);
+  renderWindow->SetSize(321, 164);
   renderWindow->AddRenderer(renderer);
   vtkSmartPointer<vtkRenderWindowInteractor> renderWindowInteractor = vtkSmartPointer<vtkRenderWindowInteractor>::New();
   renderWindowInteractor->SetRenderWindow(renderWindow);
@@ -182,6 +216,11 @@ int main(int, char* [])
   renderer->AddActor(trajActor);
   renderer->SetBackground(0.0 ,0.0, 0.0); // Background color white
  
+  vtkSmartPointer<vtkCamera> camera = vtkSmartPointer<vtkCamera>::New();
+  camera->SetFocalPoint(params[2]/2, params[3]/2, params[0]/2);
+
+  renderer->SetActiveCamera(camera);
+
   // Render and interact
   renderWindow->Render();
  
@@ -190,7 +229,8 @@ int main(int, char* [])
  
   // Sign up to receive TimerEvent
   vtkSmartPointer<vtkTimerCallback2> cb = vtkSmartPointer<vtkTimerCallback2>::New();
-  cb->Initialise(trajectories, params[0], params[1], params[4]);
+  cb->Initialise(trajectories, params[0], params[1], dim, renderer, camera);
+  //cb->Initialise(trajectories, params[0], params[1], params[4], renderer);
   cb->actor = actor;
   renderWindowInteractor->AddObserver(vtkCommand::TimerEvent, cb);
  
