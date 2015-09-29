@@ -35,30 +35,25 @@ extern bool loadFloatParam(const char *names, int numParams, void *params, char*
 	return false;
 }
 
-extern bool loadTrajectories(FILE* file, double* trajectories, int rows, int cols, int maxline, int N){
+extern void loadTrajectories(FILE* file, double* trajectories, int rows, int cols, int maxline, int dim, int* counts){
 	char* line = (char*)malloc(sizeof(char) * maxline);
 	char* temp = (char*)malloc(sizeof(char) * maxline);
 	temp = "This is unlikely to be the same as what's stored in 'line'.";
-	int colcheck = 0, rowcheck = 0;
-	//int collimit = N * cols;
+	int maxcol = cols*dim*rows;
 	for(int j=0; j<rows; j++){
+		int colOffset = j*cols*dim;
+		int colIndex = colOffset;
+		int rowcount=0;
 		if((fgets(line, maxline, file) != NULL)){
-			rowcheck++;
-			//for(int i=0; i<collimit; i++){
-			while(!(line[0]==32 && line[1]==10)){
-				trajectories[colcheck] = strtod(line, &temp);
+			while(colIndex<maxcol && !(line[0]==32 && line[1]==10)){
+				trajectories[colIndex] = strtod(line, &temp);
 				_ASSERTE( _CrtCheckMemory( ) );
-				//[DEBUG]
-				//printf("%d, %d\n", rowcheck, colcheck);
-				//[/DEBUG]
 				memcpy(line, temp, maxline);
-				colcheck++;
+				colIndex++;
+				if(colIndex%2==0)rowcount++;
 			}
 		}
+		counts[j]=rowcount;
 	}
-	if(rowcheck != rows || (colcheck / (rowcheck * N)) != cols){
-		return false;
-	} else {
-		return true;
-	}
+	return;
 }
