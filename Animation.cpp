@@ -78,29 +78,38 @@ public:
 			actorIndex+=counts[j]-1;
         }
 		//float theta = 4.0f * math::constants::pi<float>() * TimerCount/frames;
-		//float cameraX = x0 + scale * cos(theta);
-  //      float cameraY = y0 + scale * sin(theta);
-  //      float cameraZ = scale*(0.6f + 0.4f*sin(theta));
+		//float cameraX = x0 + scale/2.0f * cos(theta);
+  //      float cameraY = y0 + scale/2.0f * sin(theta);
+        /*float cameraZ = 0.5f*scale*(0.6f + 0.4f*sin(theta));*/
+		//float cameraZ = 0.5f*scale - scale *TimerCount/frames;
+
+		//camera->SetPosition(scale/2.0f, scale/2.0f, 1.5f * scale);
+		//camera->SetFocalPoint(scale/2.0f, scale/2.0f, 0.0);
+		//camera->SetViewUp(0.0,0.0,1.0);
+
+		//camera->SetPosition(x0,y0,cameraZ);
+		//camera->SetFocalPoint(x,y, 0.0);
+		//camera->SetViewUp(0.0,0.0,1.0);
 
 		printf("%d: %f, %f\n",TimerCount, x, y);
 
         vtkRenderWindowInteractor *iren = vtkRenderWindowInteractor::SafeDownCast(caller);
         iren->GetRenderWindow()->Render();
 
-         vtkSmartPointer<vtkWindowToImageFilter> windowToImageFilter = vtkSmartPointer<vtkWindowToImageFilter>::New();
-         windowToImageFilter->SetInput(iren->GetRenderWindow());
-        windowToImageFilter->SetMagnification(1); //set the resolution of the output image (3 times the current resolution of vtk render window)
-        windowToImageFilter->SetInputBufferTypeToRGBA(); //also record the alpha (transparency) channel
-        windowToImageFilter->Update();
+        // vtkSmartPointer<vtkWindowToImageFilter> windowToImageFilter = vtkSmartPointer<vtkWindowToImageFilter>::New();
+        // windowToImageFilter->SetInput(iren->GetRenderWindow());
+        //windowToImageFilter->SetMagnification(1); //set the resolution of the output image (3 times the current resolution of vtk render window)
+        //windowToImageFilter->SetInputBufferTypeToRGBA(); //also record the alpha (transparency) channel
+        //windowToImageFilter->Update();
 
-        std::string savefilename("C:/users/barry05/Desktop/VTKTrackerVis/");
-              savefilename.append(boost::lexical_cast<std::string > (TimerCount));
-              savefilename.append(".png");
+        //std::string savefilename("C:/users/barry05/Desktop/VTKTrackerVis/");
+        //      savefilename.append(boost::lexical_cast<std::string > (TimerCount));
+        //      savefilename.append(".png");
 
-         vtkSmartPointer<vtkPNGWriter> writer = vtkSmartPointer<vtkPNGWriter>::New();
-         writer->SetFileName(savefilename.data());
-         writer->SetInputConnection(windowToImageFilter->GetOutputPort());
-         writer->Write();
+        // vtkSmartPointer<vtkPNGWriter> writer = vtkSmartPointer<vtkPNGWriter>::New();
+        // writer->SetFileName(savefilename.data());
+        // writer->SetInputConnection(windowToImageFilter->GetOutputPort());
+        // writer->Write();
     }
 
 private:
@@ -197,7 +206,7 @@ int main(int, char* []) {
     vtkSmartPointer<vtkCamera> camera = vtkSmartPointer<vtkCamera>::New();
 	camera->SetPosition(params[1]/2.0f, params[2]/2.0f, 1500.0f);
 	camera->SetFocalPoint(params[1]/2.0f, params[2]/2.0f, 0.0);
-	//camera->SetViewUp(0.0,0.0,1.0);
+	//camera->SetViewUp(0.0,0.0,-1.0);
 
     renderer->SetActiveCamera(camera);
 
